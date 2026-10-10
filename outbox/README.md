@@ -1,6 +1,6 @@
 # Outbox Pattern Demo — .NET 10 + SQL Server + Azure Service Bus
 
-Implementación de referencia del patrón **Transactional Outbox** sobre SQL Server y Azure Service Bus, usando .NET 10. Pensado como ejemplo educativo y como punto de partida para un template de tu IDP.
+Implementación de referencia del patrón **Transactional Outbox** sobre SQL Server y Azure Service Bus, usando .NET 10. Pensado como ejemplo educativo y como punto de partida para un template de tu IDP...
 
 ## Qué incluye
 
