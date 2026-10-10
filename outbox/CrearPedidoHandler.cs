@@ -51,7 +51,7 @@ public sealed class CrearPedidoHandler(
         await db.SaveChangesAsync(ct);   // ← AMBOS INSERT en la misma TX
         await tx.CommitAsync(ct);
 
-        logger.LogInformation("Pedido {PedidoId} creado y evento encolado", pedido.Id);
+        logger.LogInformation("Pedido {PedidoId} creado y evento encolado.", pedido.Id);
 
         return new CrearPedidoResult(pedido.Id.Value);
     }
