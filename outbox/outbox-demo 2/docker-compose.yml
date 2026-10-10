@@ -1,0 +1,80 @@
+services:
+  # ─────────────────────────────────────────────────────────────
+  # SQL Server 2022 para desarrollo local
+  # ─────────────────────────────────────────────────────────────
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: outbox-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Your_password123!"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+      - ./db:/scripts:ro
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Your_password123! -No -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ─────────────────────────────────────────────────────────────
+  # Inicialización: crea las BDs y aplica el schema
+  # ─────────────────────────────────────────────────────────────
+  sql-init:
+    image: mcr.microsoft.com/mssql-tools
+    container_name: outbox-sql-init
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    volumes:
+      - ./db:/scripts:ro
+    entrypoint: >
+      /bin/bash -c "
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P Your_password123! -Q 'CREATE DATABASE PedidosDb' &&
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P Your_password123! -Q 'CREATE DATABASE InventarioDb' &&
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P Your_password123! -d PedidosDb -i /scripts/01-schema.sql
+      "
+
+  # ─────────────────────────────────────────────────────────────
+  # Azure Service Bus Emulator (preview oficial de Microsoft)
+  # https://learn.microsoft.com/azure/service-bus-messaging/overview-emulator
+  # ─────────────────────────────────────────────────────────────
+  servicebus:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    container_name: outbox-servicebus
+    ports:
+      - "5672:5672"
+    environment:
+      SQL_SERVER: sb-sqledge
+      MSSQL_SA_PASSWORD: "Your_password123!"
+      ACCEPT_EULA: "Y"
+    volumes:
+      - ./scripts/servicebus-config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    depends_on:
+      - sb-sqledge
+
+  sb-sqledge:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: outbox-sb-sqledge
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Your_password123!"
+
+  # ─────────────────────────────────────────────────────────────
+  # OpenTelemetry Collector + visor (Aspire Dashboard)
+  # ─────────────────────────────────────────────────────────────
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    container_name: outbox-aspire-dashboard
+    ports:
+      - "18888:18888"   # UI
+      - "4317:18889"    # OTLP gRPC
+    environment:
+      DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+
+volumes:
+  sqldata:

@@ -1,0 +1,56 @@
+{
+  "UserConfig": {
+    "Namespaces": [
+      {
+        "Name": "sbemulatorns",
+        "Queues": [],
+        "Topics": [
+          {
+            "Name": "pedidos-events",
+            "Properties": {
+              "DefaultMessageTimeToLive": "PT7D",
+              "DuplicateDetectionHistoryTimeWindow": "PT10M",
+              "RequiresDuplicateDetection": true
+            },
+            "Subscriptions": [
+              {
+                "Name": "inventario",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": true,
+                  "DefaultMessageTimeToLive": "PT7D",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "RequiresSession": true
+                },
+                "Rules": []
+              },
+              {
+                "Name": "facturacion",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": true,
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "RequiresSession": true
+                },
+                "Rules": []
+              },
+              {
+                "Name": "notificaciones",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": true,
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "RequiresSession": false
+                },
+                "Rules": []
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "Logging": {
+      "Type": "File"
+    }
+  }
+}

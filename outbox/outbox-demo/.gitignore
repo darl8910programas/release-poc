@@ -1,0 +1,24 @@
+## .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+.vs/
+.idea/
+
+## Logs
+*.log
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Configs locales
+appsettings.*.local.json
+.env
+.env.local
+
+## Docker volumes
+sqldata/

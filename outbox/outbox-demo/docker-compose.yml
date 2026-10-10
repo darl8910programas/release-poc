@@ -1,0 +1,87 @@
+services:
+  # ─────────────────────────────────────────────────────────────
+  # Azure SQL Edge para desarrollo local (multi-arch: corre nativo en arm64)
+  # Compatible con el schema; reemplaza a SQL Server 2022 que no corre en arm64.
+  # ─────────────────────────────────────────────────────────────
+  sqlserver:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: outbox-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Your_password123!"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+      - ./db:/scripts:ro
+    healthcheck:
+      # azure-sql-edge no incluye sqlcmd; verificamos el listener TCP.
+      # sql-init valida la conexión real con credenciales antes de aplicar el schema.
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/1433' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  # ─────────────────────────────────────────────────────────────
+  # Inicialización: crea las BDs y aplica el schema
+  # mssql-tools18 es multi-arch (arm64 + amd64).
+  # ─────────────────────────────────────────────────────────────
+  sql-init:
+    image: mcr.microsoft.com/mssql-tools18:latest
+    container_name: outbox-sql-init
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    volumes:
+      - ./db:/scripts:ro
+    entrypoint: >
+      /bin/bash -c "
+        SQLCMD='/opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P Your_password123! -No' ;
+        echo 'Esperando a que SQL acepte logins...' ;
+        until $$SQLCMD -Q 'SELECT 1' >/dev/null 2>&1 ; do sleep 2 ; done ;
+        echo 'SQL listo. Aplicando schema...' &&
+        $$SQLCMD -Q \"IF DB_ID('PedidosDb') IS NULL CREATE DATABASE PedidosDb\" &&
+        $$SQLCMD -Q \"IF DB_ID('InventarioDb') IS NULL CREATE DATABASE InventarioDb\" &&
+        $$SQLCMD -d PedidosDb -i /scripts/01-schema.sql
+      "
+
+  # ─────────────────────────────────────────────────────────────
+  # Azure Service Bus Emulator (preview oficial de Microsoft)
+  # https://learn.microsoft.com/azure/service-bus-messaging/overview-emulator
+  # ─────────────────────────────────────────────────────────────
+  servicebus:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    container_name: outbox-servicebus
+    ports:
+      - "5672:5672"
+    environment:
+      SQL_SERVER: sb-sqledge
+      MSSQL_SA_PASSWORD: "Your_password123!"
+      ACCEPT_EULA: "Y"
+    volumes:
+      - ./scripts/servicebus-config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    depends_on:
+      - sb-sqledge
+
+  sb-sqledge:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: outbox-sb-sqledge
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Your_password123!"
+
+  # ─────────────────────────────────────────────────────────────
+  # OpenTelemetry Collector + visor (Aspire Dashboard)
+  # ─────────────────────────────────────────────────────────────
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    container_name: outbox-aspire-dashboard
+    ports:
+      - "18888:18888"   # UI
+      - "4317:18889"    # OTLP gRPC
+    environment:
+      DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+
+volumes:
+  sqldata:
